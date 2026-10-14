@@ -1,0 +1,32 @@
+name: Prepare homepage films
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/films.yml']
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install video tools
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+      - name: Download source films
+        run: |
+          base='https://wordpress2389914.home.pl/autoinstalator/wordpressplus31/wp-content/uploads/2026/10'
+          curl --fail --location "$base/stylish-apartment-with-modern-interior-design-dol-2026-10-03-05-44-35-utc.mp4" -o first.mp4
+          curl --fail --location "$base/modern-minimalist-luxury-apartment-interior-smooth-2026-10-03-17-35-18-utc.mp4" -o second.mp4
+          curl --fail --location "$base/young-woman-walking-into-and-looking-around-her-mo-2026-10-03-14-09-00-utc.mp4" -o story.mp4
+      - name: Render silent web films
+        run: |
+          mkdir -p output
+          ffmpeg -y -i first.mp4 -i second.mp4 -filter_complex "[0:v]trim=start=1:duration=6,setpts=PTS-STARTPTS,scale=1600:900:force_original_aspect_ratio=increase,crop=1600:900,setsar=1,fps=25,format=yuv420p[a];[1:v]trim=start=1:duration=6,setpts=PTS-STARTPTS,scale=1600:900:force_original_aspect_ratio=increase,crop=1600:900,setsar=1,fps=25,format=yuv420p[b];[a][b]xfade=transition=fade:duration=1:offset=5[v]" -map '[v]' -an -c:v libx264 -preset medium -crf 25 -movflags +faststart output/hero.mp4
+          ffmpeg -y -ss 1 -i story.mp4 -t 9 -an -vf 'scale=1600:900:force_original_aspect_ratio=increase,crop=1600:900,fps=25' -c:v libx264 -pix_fmt yuv420p -crf 25 -movflags +faststart output/story.mp4
+          ffmpeg -y -i output/hero.mp4 -frames:v 1 -q:v 3 output/hero.jpg
+          ffmpeg -y -i output/story.mp4 -frames:v 1 -q:v 3 output/story.jpg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: homepage-films
+          path: output/
+          retention-days: 3
